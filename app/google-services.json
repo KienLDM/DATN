@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "979823611154",
+    "project_id": "doantotnghiep-b9e1b",
+    "storage_bucket": "doantotnghiep-b9e1b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:979823611154:android:83a4444359af884deab7cb",
+        "android_client_info": {
+          "package_name": "com.example.kiendatn2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCuL7So_SrhnIu2HY4HhCpCyAIdT1yWshc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
