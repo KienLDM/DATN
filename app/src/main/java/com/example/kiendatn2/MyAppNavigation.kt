@@ -51,5 +51,12 @@ fun MyAppNavigation(modifier: Modifier = Modifier, authViewModel: AuthViewModel)
                onBackClick = { navController.navigateUp() }
            )
        }
+        
+        composable("profile") {
+            ProfileScreen(
+                postViewModel = postViewModel,
+                onBackClick = { navController.navigateUp() }
+            )
+        }
    })
 }

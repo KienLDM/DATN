@@ -22,6 +22,8 @@ class FirebaseRepository {
     private val likesCollection = firestore.collection("likes")
 
     // Current user operations
+    fun getCurrentFirebaseUser() = auth.currentUser
+    
     suspend fun createUserProfile(user: User) = withContext(Dispatchers.IO) {
         val currentUser = auth.currentUser ?: throw IllegalStateException("No user logged in")
         val userData = user.copy(id = currentUser.uid, email = currentUser.email ?: "")
@@ -31,6 +33,66 @@ class FirebaseRepository {
     suspend fun getCurrentUser(): User? = withContext(Dispatchers.IO) {
         val currentUser = auth.currentUser ?: return@withContext null
         usersCollection.document(currentUser.uid).get().await().toObject(User::class.java)
+    }
+
+    // User profile operations
+    suspend fun updateUserProfile(displayName: String, bio: String?, photoUri: Uri?): User = withContext(Dispatchers.IO) {
+        val currentUser = auth.currentUser ?: throw IllegalStateException("No user logged in")
+        
+        // Upload photo if provided
+        val photoUrl = photoUri?.let { uploadImage(it, "profiles") } ?: getCurrentUser()?.photoUrl
+        
+        // Create updated user data
+        val userData = mapOf(
+            "displayName" to displayName,
+            "bio" to bio,
+            "photoUrl" to photoUrl
+        )
+        
+        // Update user document
+        usersCollection.document(currentUser.uid).update(userData).await()
+        
+        // Return updated user
+        getCurrentUser() ?: throw IllegalStateException("Failed to get updated user")
+    }
+
+    // Get posts by current user
+    suspend fun getUserPosts(): List<Post> = withContext(Dispatchers.IO) {
+        val currentUser = auth.currentUser ?: throw IllegalStateException("No user logged in")
+        
+        try {
+            // Get posts by the current user
+            val posts = postsCollection
+                .whereEqualTo("userId", currentUser.uid)
+                .get()
+                .await()
+                .toObjects(Post::class.java)
+                .sortedByDescending { it.createdAt }
+                
+            // Get likes by current user to mark which posts are liked
+            val userLikes = likesCollection
+                .whereEqualTo("userId", currentUser.uid)
+                .get()
+                .await()
+                .documents
+                .map { it.getString("postId") ?: "" }
+                .toSet()
+            
+            // Mark posts as liked if they are in the userLikes set
+            return@withContext posts.map { post ->
+                post.copy(isLikedByCurrentUser = userLikes.contains(post.id))
+            }
+        } catch (e: Exception) {
+            // Fallback to a simpler query if index not available
+            val posts = postsCollection
+                .get()
+                .await()
+                .toObjects(Post::class.java)
+                .filter { it.userId == currentUser.uid }
+                .sortedByDescending { it.createdAt }
+                
+            return@withContext posts
+       }
     }
 
     // Post operations
@@ -65,26 +127,31 @@ class FirebaseRepository {
     suspend fun getPostsWithLikeStatus(): List<Post> = withContext(Dispatchers.IO) {
         val currentUser = auth.currentUser ?: return@withContext emptyList<Post>()
         
-        // Get all posts
-        val posts = postsCollection
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .get()
-            .await()
-            .toObjects(Post::class.java)
+        try {
+            // Get all posts
+            val posts = postsCollection
+                .get()
+                .await()
+                .toObjects(Post::class.java)
+                .sortedByDescending { it.createdAt }
+            
+            // Get all likes by current user
+            val userLikes = likesCollection
+                .whereEqualTo("userId", currentUser.uid)
+                .get()
+                .await()
+                .documents
+                .map { it.getString("postId") ?: "" }
+                .toSet()
         
-        // Get all likes by current user
-        val userLikes = likesCollection
-            .whereEqualTo("userId", currentUser.uid)
-            .get()
-            .await()
-            .documents
-            .map { it.getString("postId") ?: "" }
-            .toSet()
-        
-        // Mark posts as liked if they are in the userLikes set
-        return@withContext posts.map { post ->
-            post.copy(isLikedByCurrentUser = userLikes.contains(post.id))
-        }
+            // Mark posts as liked if they are in the userLikes set
+            return@withContext posts.map { post ->
+                post.copy(isLikedByCurrentUser = userLikes.contains(post.id))
+            }
+        } catch (e: Exception) {
+            // Fallback in case of errors
+            return@withContext emptyList()
+       }
     }
 
     // Comment operations
@@ -114,12 +181,22 @@ class FirebaseRepository {
     }
 
     suspend fun getCommentsForPost(postId: String): List<Comment> = withContext(Dispatchers.IO) {
-        commentsCollection
-            .whereEqualTo("postId", postId)
-            .orderBy("createdAt", Query.Direction.ASCENDING)
-            .get()
-            .await()
-            .toObjects(Comment::class.java)
+        try {
+            commentsCollection
+                .whereEqualTo("postId", postId)
+                .get()
+                .await()
+                .toObjects(Comment::class.java)
+                .sortedBy { it.createdAt }
+        } catch (e: Exception) {
+            // Fallback to a simpler query if index not available
+            commentsCollection
+                .get()
+                .await()
+                .toObjects(Comment::class.java)
+                .filter { it.postId == postId }
+                .sortedBy { it.createdAt }
+        }
     }
 
     suspend fun getPostById(postId: String): Post? = withContext(Dispatchers.IO) {

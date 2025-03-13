@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -59,6 +60,9 @@ fun HomePage(modifier: Modifier = Modifier, navController: NavController, authVi
             TopAppBar(
                 title = { Text(text = "Social Feed") },
                 actions = {
+                    IconButton(onClick = { navController.navigate("profile") }) {
+                        Icon(Icons.Default.Person, contentDescription = "Profile")
+                    }
                     TextButton(onClick = { authViewModel.signout() }) {
                         Text("Sign out")
                     }
