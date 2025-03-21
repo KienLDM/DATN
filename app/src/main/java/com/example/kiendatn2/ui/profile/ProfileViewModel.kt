@@ -1,10 +1,13 @@
-package com.example.kiendatn2
+package com.example.kiendatn2.ui.profile
 
 import android.net.Uri
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.kiendatn2.data.User
+import com.example.kiendatn2.repository.FirebaseRepository
+import com.example.kiendatn2.data.Post
 import kotlinx.coroutines.launch
 
 class ProfileViewModel : ViewModel() {
@@ -42,7 +45,8 @@ class ProfileViewModel : ViewModel() {
                             _profileState.value = ProfileState.Error("Not signed in")
                         }
                     } catch (e: Exception) {
-                        _profileState.value = ProfileState.Error("Failed to create user profile: ${e.message}")
+                        _profileState.value =
+                            ProfileState.Error("Failed to create user profile: ${e.message}")
                     }
                 }
             } catch (e: Exception) {

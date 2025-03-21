@@ -1,10 +1,14 @@
-package com.example.kiendatn2
+package com.example.kiendatn2.ui.post
 
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.kiendatn2.repository.FirebaseRepository
+import com.example.kiendatn2.data.Comment
+import com.example.kiendatn2.data.Post
 import kotlinx.coroutines.launch
 
 class PostViewModel : ViewModel() {
@@ -18,6 +22,12 @@ class PostViewModel : ViewModel() {
 
     private val _currentPostState = MutableLiveData<CurrentPostState>(CurrentPostState.NotSelected)
     val currentPostState: LiveData<CurrentPostState> = _currentPostState
+
+    private val _repliesState = MutableLiveData<Map<String, List<Comment>>>(emptyMap())
+    val repliesState: LiveData<Map<String, List<Comment>>> = _repliesState
+
+    private val _replyingToState = MutableLiveData<Comment?>(null)
+    val replyingToState: LiveData<Comment?> = _replyingToState
 
     init {
         loadPosts()
@@ -94,7 +104,7 @@ class PostViewModel : ViewModel() {
                 _postsState.value = PostState.Success(updatedPosts)
                 
                 // If we're viewing a specific post, update that too
-                if (_currentPostState.value is CurrentPostState.PostLoaded && 
+                if (_currentPostState.value is CurrentPostState.PostLoaded &&
                     (_currentPostState.value as CurrentPostState.PostLoaded).post.id == postId) {
                     loadPostById(postId)
                 }
@@ -123,6 +133,114 @@ class PostViewModel : ViewModel() {
     
     fun clearCurrentPost() {
         _currentPostState.value = CurrentPostState.NotSelected
+    }
+
+    fun toggleCommentLike(commentId: String) {
+        viewModelScope.launch {
+            try {
+                val isLiked = repository.toggleCommentLike(commentId)
+                
+                // Update comments state to reflect the like change
+                _commentsState.value?.let { state ->
+                    if (state is CommentsState.Success) {
+                        val updatedComments = state.comments.map { comment ->
+                            if (comment.id == commentId) {
+                                val newLikeCount = if (isLiked) {
+                                    comment.likeCount + 1
+                                } else {
+                                    (comment.likeCount - 1).coerceAtLeast(0) // Ensure not negative
+                                }
+                                comment.copy(
+                                    likeCount = newLikeCount,
+                                    isLikedByCurrentUser = isLiked
+                                )
+                            } else {
+                                comment
+                            }
+                        }
+                        _commentsState.value = CommentsState.Success(updatedComments)
+                    }
+                }
+                
+                // Also update any replies if we're showing them
+                _repliesState.value?.let { repliesMap ->
+                    val updatedRepliesMap = repliesMap.mapValues { (_, replies) ->
+                        replies.map { reply ->
+                            if (reply.id == commentId) {
+                                val newLikeCount = if (isLiked) {
+                                    reply.likeCount + 1
+                                } else {
+                                    (reply.likeCount - 1).coerceAtLeast(0)
+                                }
+                                reply.copy(
+                                    likeCount = newLikeCount,
+                                    isLikedByCurrentUser = isLiked
+                                )
+                            } else {
+                                reply
+                            }
+                        }
+                    }
+                    _repliesState.value = updatedRepliesMap
+                }
+            } catch (e: Exception) {
+                Log.e("PostViewModel", "Error toggling comment like", e)
+            }
+        }
+    }
+
+    fun addReply(parentCommentId: String, text: String, imageUri: Uri?) {
+        viewModelScope.launch {
+            try {
+                val reply = repository.addReply(parentCommentId, text, imageUri)
+                
+                // Update the parent comment's reply count
+                _commentsState.value?.let { state ->
+                    if (state is CommentsState.Success) {
+                        val updatedComments = state.comments.map { comment ->
+                            if (comment.id == parentCommentId) {
+                                comment.copy(replyCount = comment.replyCount + 1)
+                            } else {
+                                comment
+                            }
+                        }
+                        _commentsState.value = CommentsState.Success(updatedComments)
+                    }
+                }
+                
+                // Add the reply to replies state if we're showing replies for this comment
+                val currentReplies = _repliesState.value ?: emptyMap()
+                val commentReplies = currentReplies[parentCommentId] ?: emptyList()
+                _repliesState.value = currentReplies + (parentCommentId to commentReplies + reply)
+                
+                // Clear the replying state
+                _replyingToState.value = null
+            } catch (e: Exception) {
+                Log.e("PostViewModel", "Error adding reply", e)
+            }
+        }
+    }
+
+    fun loadReplies(commentId: String) {
+        viewModelScope.launch {
+            try {
+                val replies = repository.getRepliesForComment(commentId)
+                
+                // Update replies state
+                val currentReplies = _repliesState.value ?: emptyMap()
+                _repliesState.value = currentReplies + (commentId to replies)
+            } catch (e: Exception) {
+                Log.e("PostViewModel", "Error loading replies", e)
+            }
+        }
+    }
+
+    fun setReplyingTo(comment: Comment) {
+        _replyingToState.value = comment
+    }
+
+    fun cancelReply() {
+        _replyingToState.value = null
     }
 }
 

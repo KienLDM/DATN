@@ -1,8 +1,7 @@
-package com.example.kiendatn2
+package com.example.kiendatn2.ui.comment
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +39,11 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.kiendatn2.data.Comment
+import com.example.kiendatn2.ui.post.CommentsState
+import com.example.kiendatn2.ui.post.CurrentPostState
+import com.example.kiendatn2.ui.post.PostItemDetailed
+import com.example.kiendatn2.ui.post.PostViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,7 +98,7 @@ fun CommentScreen(
                        ) {
                            // Post details
                            PostItemDetailed(
-                               authorName = post.userId,
+                               authorName = post.userDisplayName,
                                content = post.text,
                                imageUrl = post.imageUrl,
                                likeCount = post.likeCount,
@@ -253,7 +257,7 @@ fun CommentItem(comment: Comment) {
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "User ${comment.userId.take(5)}",
+                text = comment.userDisplayName, // Use display name instead of userId
                 style = MaterialTheme.typography.titleMedium
             )
             

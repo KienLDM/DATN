@@ -1,4 +1,4 @@
-package com.example.kiendatn2
+package com.example.kiendatn2.data
 
 import com.google.firebase.Timestamp
 

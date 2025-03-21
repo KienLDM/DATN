@@ -1,4 +1,4 @@
-package com.example.kiendatn2
+package com.example.kiendatn2.ui.post
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,11 +26,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.kiendatn2.R
 
 @Composable
 fun PostItemDetailed(
@@ -48,13 +46,9 @@ fun PostItemDetailed(
     onCommentClick: () -> Unit = {},
     onShareClick: () -> Unit = {}
 ) {
-    // Convert userId to a display name if it's a Firebase UID
-    val displayName = if (authorName.length > 20) {
-        "User " + authorName.take(5)
-    } else {
-        authorName
-    }
-
+    // Use the authorName directly instead of modifying it
+    // (since it will now come from userDisplayName)
+    
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -84,9 +78,9 @@ fun PostItemDetailed(
                             modifier = Modifier.fillMaxWidth()
                         )
                     } else {
-                        // User initial as placeholder
+                        // User initial as placeholder - use first letter of display name
                         Text(
-                            text = displayName.first().toString(),
+                            text = authorName.firstOrNull()?.toString() ?: "?",
                             modifier = Modifier.align(Alignment.Center),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
@@ -97,9 +91,9 @@ fun PostItemDetailed(
                 
                 Spacer(modifier = Modifier.width(8.dp))
                 
-                // Author name
+                // Author name - use display name directly
                 Text(
-                    text = displayName,
+                    text = authorName,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
@@ -158,7 +152,7 @@ fun PostItemDetailed(
                    ) {
                        Image(
                            painter = painterResource(
-                               if (isLikedByCurrentUser) R.drawable.ic_like_filled 
+                               if (isLikedByCurrentUser) R.drawable.ic_like_filled
                                else R.drawable.ic_like
                            ),
                            contentDescription = "Like icon",

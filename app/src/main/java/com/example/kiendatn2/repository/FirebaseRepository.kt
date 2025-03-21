@@ -1,6 +1,9 @@
-package com.example.kiendatn2
+package com.example.kiendatn2.repository
 
 import android.net.Uri
+import com.example.kiendatn2.data.Comment
+import com.example.kiendatn2.data.Post
+import com.example.kiendatn2.data.User
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -20,6 +23,7 @@ class FirebaseRepository {
     private val postsCollection = firestore.collection("posts")
     private val commentsCollection = firestore.collection("comments")
     private val likesCollection = firestore.collection("likes")
+    private val commentLikesCollection = firestore.collection("commentLikes")
 
     // Current user operations
     fun getCurrentFirebaseUser() = auth.currentUser
@@ -98,6 +102,9 @@ class FirebaseRepository {
     // Post operations
     suspend fun createPost(text: String, imageUri: Uri?): Post = withContext(Dispatchers.IO) {
         val currentUser = auth.currentUser ?: throw IllegalStateException("No user logged in")
+        
+        // Get the user display name
+        val userDisplayName = currentUser.displayName ?: "Unknown User"
 
         // If image is included, upload to storage first
         val imageUrl = imageUri?.let { uploadImage(it, "posts") }
@@ -106,6 +113,7 @@ class FirebaseRepository {
         val post = Post(
             id = postId,
             userId = currentUser.uid,
+            userDisplayName = userDisplayName, 
             text = text,
             imageUrl = imageUrl,
             createdAt = Timestamp.now()
@@ -157,6 +165,9 @@ class FirebaseRepository {
     // Comment operations
     suspend fun addComment(postId: String, text: String, imageUri: Uri?): Comment = withContext(Dispatchers.IO) {
         val currentUser = auth.currentUser ?: throw IllegalStateException("No user logged in")
+        
+        // Get the user display name
+        val userDisplayName = currentUser.displayName ?: "Unknown User"
 
         // If image is included, upload to storage first
         val imageUrl = imageUri?.let { uploadImage(it, "comments") }
@@ -166,6 +177,7 @@ class FirebaseRepository {
             id = commentId,
             postId = postId,
             userId = currentUser.uid,
+            userDisplayName = userDisplayName, 
             text = text,
             imageUrl = imageUrl,
             createdAt = Timestamp.now()
@@ -254,6 +266,109 @@ class FirebaseRepository {
             postsCollection.document(postId).update("likeCount",
                 com.google.firebase.firestore.FieldValue.increment(-1)).await()
             false
+        }
+    }
+
+    // Comment like operations
+    suspend fun toggleCommentLike(commentId: String): Boolean = withContext(Dispatchers.IO) {
+        val currentUser = auth.currentUser ?: throw IllegalStateException("No user logged in")
+
+        val likeQuery = commentLikesCollection
+            .whereEqualTo("commentId", commentId)
+            .whereEqualTo("userId", currentUser.uid)
+            .get()
+            .await()
+
+        if (likeQuery.isEmpty) {
+            // Add like
+            val likeId = commentLikesCollection.document().id
+            val likeData = hashMapOf(
+                "id" to likeId,
+                "commentId" to commentId,
+                "userId" to currentUser.uid,
+                "userDisplayName" to (currentUser.displayName ?: "Unknown User"),
+                "createdAt" to Timestamp.now()
+            )
+
+            commentLikesCollection.document(likeId).set(likeData).await()
+            commentsCollection.document(commentId).update("likeCount",
+                com.google.firebase.firestore.FieldValue.increment(1)).await()
+            true
+        } else {
+            // Remove like
+            val likeDoc = likeQuery.documents.first()
+            commentLikesCollection.document(likeDoc.id).delete().await()
+            commentsCollection.document(commentId).update("likeCount",
+                com.google.firebase.firestore.FieldValue.increment(-1)).await()
+            false
+        }
+    }
+
+    // Add a reply to a comment
+    suspend fun addReply(parentCommentId: String, text: String, imageUri: Uri?): Comment = withContext(Dispatchers.IO) {
+        val currentUser = auth.currentUser ?: throw IllegalStateException("No user logged in")
+        val userDisplayName = currentUser.displayName ?: "Unknown User"
+
+        // Get parent comment to find the post
+        val parentComment = commentsCollection.document(parentCommentId).get().await()
+            .toObject(Comment::class.java) ?: throw IllegalStateException("Parent comment not found")
+        
+        // If image is included, upload to storage first
+        val imageUrl = imageUri?.let { uploadImage(it, "comments") }
+
+        val commentId = commentsCollection.document().id
+        val reply = Comment(
+            id = commentId,
+            postId = parentComment.postId, // Same post as parent
+            userId = currentUser.uid,
+            userDisplayName = userDisplayName,
+            text = text,
+            imageUrl = imageUrl,
+            createdAt = Timestamp.now(),
+            parentCommentId = parentCommentId // Mark as a reply
+        )
+
+        commentsCollection.document(commentId).set(reply).await()
+
+        // Increment reply count on parent comment
+        commentsCollection.document(parentCommentId).update("replyCount",
+            com.google.firebase.firestore.FieldValue.increment(1)).await()
+
+        reply
+    }
+
+    // Get replies to a specific comment
+    suspend fun getRepliesForComment(commentId: String): List<Comment> = withContext(Dispatchers.IO) {
+        try {
+            val currentUser = auth.currentUser
+            
+            // Get all replies for this comment
+            val replies = commentsCollection
+                .whereEqualTo("parentCommentId", commentId)
+                .orderBy("createdAt", Query.Direction.ASCENDING)
+                .get()
+                .await()
+                .toObjects(Comment::class.java)
+                
+            // If user is logged in, check which replies they've liked
+            if (currentUser != null) {
+                val userLikes = commentLikesCollection
+                    .whereEqualTo("userId", currentUser.uid)
+                    .get()
+                    .await()
+                    .documents
+                    .mapNotNull { it.getString("commentId") }
+                    .toSet()
+                    
+                // Mark replies as liked if they're in userLikes
+                return@withContext replies.map { reply ->
+                    reply.copy(isLikedByCurrentUser = userLikes.contains(reply.id))
+                }
+            } else {
+                return@withContext replies
+            }
+        } catch (e: Exception) {
+            return@withContext emptyList()
         }
     }
 

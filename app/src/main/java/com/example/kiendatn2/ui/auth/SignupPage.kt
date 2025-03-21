@@ -1,4 +1,4 @@
-package com.example.kiendatn2
+package com.example.kiendatn2.ui.auth
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -22,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.navigation.NavController
 
 @Composable
@@ -36,6 +39,10 @@ fun SignupPage(
     }
 
     var password by remember {
+        mutableStateOf("")
+    }
+
+    var displayName by remember {
         mutableStateOf("")
     }
 
@@ -54,10 +61,23 @@ fun SignupPage(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    ) {                
         Text(text = "Signup page", fontSize = 32.sp)
 
         Spacer(modifier = Modifier.size(16.dp))
+
+        // Display Name
+        OutlinedTextField(
+            value = displayName,
+            onValueChange = {
+                displayName = it
+            },
+            label = {
+                Text(text = "Display Name")
+            }
+        )
+
+        Spacer(modifier = Modifier.size(8.dp))
 
         // Email
         OutlinedTextField(
@@ -80,7 +100,9 @@ fun SignupPage(
             },
             label = {
                 Text(text = "Password")
-            }
+            },
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
 
         Spacer(modifier = Modifier.size(16.dp))
@@ -88,7 +110,7 @@ fun SignupPage(
         // Signup button
         Button(
             onClick = {
-                authViewModel.signup(email, password)
+                authViewModel.signup(email, password, displayName)
             }
         ) {
             Text(text = "Create account")

@@ -1,4 +1,4 @@
-package com.example.kiendatn2
+package com.example.kiendatn2.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,8 +40,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.kiendatn2.ui.auth.AuthState
+import com.example.kiendatn2.ui.auth.AuthViewModel
+import com.example.kiendatn2.data.Post
+import com.example.kiendatn2.ui.post.PostItemDetailed
+import com.example.kiendatn2.ui.post.PostState
+import com.example.kiendatn2.ui.post.PostViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -193,7 +198,7 @@ fun PostItem(post: Post, postViewModel: PostViewModel) {
     var isLoading by remember { mutableStateOf(false) }
     
     PostItemDetailed(
-        authorName = post.userId,  // Ideally this should display username instead of userId
+        authorName = post.userDisplayName,  
         content = post.text,
         imageUrl = post.imageUrl,
         likeCount = post.likeCount,

@@ -1,4 +1,4 @@
-package com.example.kiendatn2
+package com.example.kiendatn2.ui.auth
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
@@ -19,12 +19,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import java.nio.file.WatchEvent
 
 @Composable
 fun LoginPage(

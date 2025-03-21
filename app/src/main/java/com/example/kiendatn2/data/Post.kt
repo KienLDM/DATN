@@ -1,10 +1,11 @@
-package com.example.kiendatn2
+package com.example.kiendatn2.data
 
 import com.google.firebase.Timestamp
 
 data class Post(
     val id: String = "",
     val userId: String = "",
+    val userDisplayName: String = "", // Include display name
     val text: String = "",
     val imageUrl: String? = null,
     val likeCount: Int = 0,
