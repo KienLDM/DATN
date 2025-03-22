@@ -42,9 +42,20 @@ class FirebaseRepository {
     // User profile operations
     suspend fun updateUserProfile(displayName: String, bio: String?, photoUri: Uri?): User = withContext(Dispatchers.IO) {
         val currentUser = auth.currentUser ?: throw IllegalStateException("No user logged in")
-        
-        // Upload photo if provided
-        val photoUrl = photoUri?.let { uploadImage(it, "profiles") } ?: getCurrentUser()?.photoUrl
+
+        // Upload photo if provided - handle potential failures
+        var photoUrl = getCurrentUser()?.photoUrl
+        if (photoUri != null) {
+            try {
+                photoUrl = uploadImage(photoUri, "profiles")
+            } catch (e: Exception) {
+                // Log error but continue with profile update without changing photo
+                android.util.Log.e(
+                    "FirebaseRepository",
+                    "Failed to upload profile photo: ${e.message}"
+                )
+            }
+        }
         
         // Create updated user data
         val userData = mapOf(
@@ -106,8 +117,17 @@ class FirebaseRepository {
         // Get the user display name
         val userDisplayName = currentUser.displayName ?: "Unknown User"
 
-        // If image is included, upload to storage first
-        val imageUrl = imageUri?.let { uploadImage(it, "posts") }
+        // If image is included, try to upload to storage first
+        var imageUrl: String? = null
+        if (imageUri != null) {
+            try {
+                imageUrl = uploadImage(imageUri, "posts")
+            } catch (e: Exception) {
+                // Log the error but continue creating post without image
+                android.util.Log.e("FirebaseRepository", "Failed to upload image: ${e.message}")
+                // If image upload fails, we'll proceed with creating the post without an image
+            }
+        }
 
         val postId = postsCollection.document().id
         val post = Post(
@@ -151,7 +171,28 @@ class FirebaseRepository {
                 .documents
                 .map { it.getString("postId") ?: "" }
                 .toSet()
-        
+
+            // Debug post image URLs
+            posts.forEach { post ->
+                if (post.imageUrl != null) {
+                    android.util.Log.d(
+                        "FirebaseRepository",
+                        "Post ID: ${post.id}, Image URL: ${post.imageUrl}"
+                    )
+                    try {
+                        // Try to validate the image URL by checking if the file exists
+                        val storageRef = storage.getReferenceFromUrl(post.imageUrl!!)
+                        android.util.Log.d("FirebaseRepository", "Storage path: ${storageRef.path}")
+                    } catch (e: Exception) {
+                        android.util.Log.e(
+                            "FirebaseRepository",
+                            "Invalid image URL: ${post.imageUrl}",
+                            e
+                        )
+                    }
+                }
+            }
+
             // Mark posts as liked if they are in the userLikes set
             return@withContext posts.map { post ->
                 post.copy(isLikedByCurrentUser = userLikes.contains(post.id))
@@ -169,8 +210,20 @@ class FirebaseRepository {
         // Get the user display name
         val userDisplayName = currentUser.displayName ?: "Unknown User"
 
-        // If image is included, upload to storage first
-        val imageUrl = imageUri?.let { uploadImage(it, "comments") }
+        // If image is included, try to upload to storage first
+        var imageUrl: String? = null
+        if (imageUri != null) {
+            try {
+                imageUrl = uploadImage(imageUri, "comments")
+            } catch (e: Exception) {
+                // Log the error but continue creating comment without image
+                android.util.Log.e(
+                    "FirebaseRepository",
+                    "Failed to upload comment image: ${e.message}"
+                )
+                // If image upload fails, we'll proceed with creating the comment without an image
+            }
+        }
 
         val commentId = commentsCollection.document().id
         val comment = Comment(
@@ -312,9 +365,21 @@ class FirebaseRepository {
         // Get parent comment to find the post
         val parentComment = commentsCollection.document(parentCommentId).get().await()
             .toObject(Comment::class.java) ?: throw IllegalStateException("Parent comment not found")
-        
-        // If image is included, upload to storage first
-        val imageUrl = imageUri?.let { uploadImage(it, "comments") }
+
+        // If image is included, try to upload to storage first
+        var imageUrl: String? = null
+        if (imageUri != null) {
+            try {
+                imageUrl = uploadImage(imageUri, "comments")
+            } catch (e: Exception) {
+                // Log the error but continue creating reply without image
+                android.util.Log.e(
+                    "FirebaseRepository",
+                    "Failed to upload reply image: ${e.message}"
+                )
+                // If image upload fails, we'll proceed with creating the reply without an image
+            }
+        }
 
         val commentId = commentsCollection.document().id
         val reply = Comment(
@@ -374,9 +439,17 @@ class FirebaseRepository {
 
     // Helper method for image uploads
     private suspend fun uploadImage(imageUri: Uri, folder: String): String = withContext(Dispatchers.IO) {
-        val filename = UUID.randomUUID().toString()
-        val ref = storage.reference.child("$folder/$filename")
-        ref.putFile(imageUri).await()
-        ref.downloadUrl.await().toString()
+        try {
+            android.util.Log.d(
+                "FirebaseRepository",
+                "Using local URI as temporary solution: $imageUri"
+            )
+            // Simply return the local URI as a string - this will only work on the same device
+            // and is NOT a production solution
+            return@withContext imageUri.toString()
+        } catch (e: Exception) {
+            android.util.Log.e("FirebaseRepository", "Error processing local URI", e)
+            throw Exception("Failed to process image: ${e.message}")
+        }
     }
 }

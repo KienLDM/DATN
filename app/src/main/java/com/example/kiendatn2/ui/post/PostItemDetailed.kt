@@ -1,5 +1,6 @@
 package com.example.kiendatn2.ui.post
 
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -109,20 +112,49 @@ fun PostItemDetailed(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
             
-            // Post image
             if (imageUrl != null) {
-                AsyncImage(
-                    model = imageUrl,
-                    contentDescription = "Post image",
-                    contentScale = ContentScale.FillWidth,
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(220.dp)
                         .padding(bottom = 5.dp)
-                )
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .align(Alignment.Center)
+                    )
+
+                    AsyncImage(
+                        model = if (imageUrl.startsWith("content:") || imageUrl.startsWith("file:")) {
+                            Uri.parse(imageUrl)
+                        } else {
+                            imageUrl
+                        },
+                        contentDescription = "Post image",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                        error = painterResource(id = R.drawable.ic_error_image),
+                        placeholder = painterResource(id = R.drawable.ic_error_image),
+                        onLoading = {
+                            android.util.Log.d("PostItemDetailed", "Loading image: $imageUrl")
+                        },
+                        onError = {
+                            android.util.Log.e(
+                                "PostItemDetailed",
+                                "Error loading image: $imageUrl, error: $it"
+                            )
+                        },
+                        onSuccess = {
+                            android.util.Log.d(
+                                "PostItemDetailed",
+                                "Successfully loaded image: $imageUrl"
+                            )
+                        }
+                    )
+                }
             }
             
-            // Add a light divider
             Divider(
                 modifier = Modifier.padding(horizontal = 8.dp),
                 color = Color.LightGray,
@@ -132,7 +164,7 @@ fun PostItemDetailed(
             // Action buttons row
             Row(
                 modifier = Modifier
-                    .fillMaxWidth() 
+                    .fillMaxWidth()
                     .padding(horizontal = 4.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceAround

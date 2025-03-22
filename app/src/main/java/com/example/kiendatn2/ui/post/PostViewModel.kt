@@ -47,10 +47,13 @@ class PostViewModel : ViewModel() {
 
     fun createPost(text: String, imageUri: Uri?) {
         viewModelScope.launch {
+            // Show loading state
+            _postsState.value = PostState.Loading
             try {
                 repository.createPost(text, imageUri)
                 loadPosts() // Refresh post list
             } catch (e: Exception) {
+                Log.e("PostViewModel", "Error creating post", e)
                 _postsState.value = PostState.Error(e.message ?: "Failed to create post")
             }
         }

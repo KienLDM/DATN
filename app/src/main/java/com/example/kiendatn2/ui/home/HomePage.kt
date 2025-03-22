@@ -1,27 +1,37 @@
 package com.example.kiendatn2.ui.home
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.*
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -38,12 +48,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import com.example.kiendatn2.data.Post
 import com.example.kiendatn2.ui.auth.AuthState
 import com.example.kiendatn2.ui.auth.AuthViewModel
-import com.example.kiendatn2.data.Post
 import com.example.kiendatn2.ui.post.PostItemDetailed
 import com.example.kiendatn2.ui.post.PostState
 import com.example.kiendatn2.ui.post.PostViewModel
@@ -87,6 +99,21 @@ fun PostScreen(modifier: Modifier = Modifier, postViewModel: PostViewModel) {
     val postsState = postViewModel.postsState.observeAsState()
     var showCreatePost by remember { mutableStateOf(false) }
     var postText by remember { mutableStateOf("") }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        selectedImageUri = uri
+    }
+
+    LaunchedEffect(postsState.value) {
+        if (postsState.value is PostState.Error) {
+            errorMessage = (postsState.value as PostState.Error).message
+            showError = true
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         if (showCreatePost) {
@@ -112,18 +139,70 @@ fun PostScreen(modifier: Modifier = Modifier, postViewModel: PostViewModel) {
                         placeholder = { Text("What's on your mind?") },
                         maxLines = 5
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    IconButton(
-                        onClick = {
-                            if (postText.isNotBlank()) {
-                                postViewModel.createPost(postText, null)
-                                postText = ""
-                                showCreatePost = false
+                    
+                    selectedImageUri?.let { uri ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                        ) {
+                            AsyncImage(
+                                model = uri,
+                                contentDescription = "Selected image",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                            IconButton(
+                                onClick = { selectedImageUri = null },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                        shape = CircleShape
+                                    )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Remove image",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
-                        },
-                        modifier = Modifier.align(Alignment.End)
+                        }
+                    }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Send, contentDescription = "Post")
+                        IconButton(
+                            onClick = { imagePickerLauncher.launch("image/*") }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Attach image"
+                            )
+                        }
+                        
+                        Button(
+                            onClick = {
+                                if (postText.isNotBlank() || selectedImageUri != null) {
+                                    postViewModel.createPost(postText, selectedImageUri)
+                                    postText = ""
+                                    selectedImageUri = null
+                                    showCreatePost = false
+                                }
+                            },
+                            enabled = postText.isNotBlank() || selectedImageUri != null
+                        ) {
+                            Text("Post")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Default.Send,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -182,7 +261,9 @@ fun PostScreen(modifier: Modifier = Modifier, postViewModel: PostViewModel) {
                         color = MaterialTheme.colorScheme.error
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    TextButton(onClick = { postViewModel.loadPosts() }) {
+                    TextButton(onClick = {
+                        postViewModel.loadPosts()
+                    }) {
                         Text("Retry")
                     }
                 }
@@ -190,13 +271,35 @@ fun PostScreen(modifier: Modifier = Modifier, postViewModel: PostViewModel) {
             else -> {}
         }
     }
+
+    // Show error dialog if needed
+    if (showError) {
+        AlertDialog(
+            onDismissRequest = { showError = false },
+            title = { Text("Error") },
+            text = { Text(errorMessage) },
+            confirmButton = {
+                TextButton(onClick = { showError = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 fun PostItem(post: Post, postViewModel: PostViewModel) {
     // State to track if post is being loaded for comments
     var isLoading by remember { mutableStateOf(false) }
-    
+
+    // Log image URL for debugging
+    LaunchedEffect(post.id) {
+        android.util.Log.d(
+            "PostItem",
+            "Post ID: ${post.id}, Has image URL: ${post.imageUrl != null}, Image URL: ${post.imageUrl ?: "none"}"
+        )
+    }
+
     PostItemDetailed(
         authorName = post.userDisplayName,  
         content = post.text,
